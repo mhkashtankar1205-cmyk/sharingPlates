@@ -1,22 +1,83 @@
-import { DatabaseSync } from 'node:sqlite';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * SQLite compiled to WebAssembly (sql.js), running inside the page. `db` offers the small part of
+ * node:sqlite's API that this folder uses (prepare(sql).get/all/run and exec), so the queries are plain SQLite.
+ */
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(__dirname, '..');
-export const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
-export const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(ROOT, 'uploads');
+let raw = null; // the open sql.js Database
+const statements = new Map(); // SQL text → prepared statement on `raw`
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+function statement(sql) {
+  if (!raw) throw new Error('The database is not open yet.');
+  let s = statements.get(sql);
+  if (!s) statements.set(sql, (s = raw.prepare(sql)));
+  return s;
+}
 
-export const db = new DatabaseSync(process.env.DB_FILE || path.join(DATA_DIR, 'sharingplates.db'));
+const scalar = (sql) => raw.exec(sql)[0].values[0][0];
+const bindable = (args) => args.map((v) => (v === undefined ? null : v));
 
-db.exec(`
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
+export const db = {
+  prepare(sql) {
+    return {
+      get(...args) {
+        const s = statement(sql);
+        try {
+          s.bind(bindable(args));
+          return s.step() ? s.getAsObject() : undefined;
+        } finally {
+          s.reset();
+        }
+      },
+      all(...args) {
+        const s = statement(sql);
+        const rows = [];
+        try {
+          s.bind(bindable(args));
+          while (s.step()) rows.push(s.getAsObject());
+        } finally {
+          s.reset();
+        }
+        return rows;
+      },
+      run(...args) {
+        const s = statement(sql);
+        try {
+          s.bind(bindable(args));
+          s.step();
+        } finally {
+          s.reset();
+        }
+        const changes = raw.getRowsModified();
+        return { changes, lastInsertRowid: scalar('SELECT last_insert_rowid()') };
+      },
+    };
+  },
+  exec(sql) {
+    raw.exec(sql);
+  },
+};
 
+/** Opens a database from saved bytes (or a new, empty one) and makes sure the schema exists. */
+export function openDatabase(SQL, bytes = null) {
+  statements.clear();
+  raw?.close();
+  raw = new SQL.Database(bytes ?? undefined);
+  raw.exec('PRAGMA foreign_keys = ON;');
+  raw.exec(SCHEMA);
+}
+
+/** The whole database as bytes, for saving. sql.js reopens the connection to do this, dropping statements and pragmas. */
+export function exportDatabase() {
+  statements.clear();
+  const bytes = raw.export();
+  raw.exec('PRAGMA foreign_keys = ON;');
+  return bytes;
+}
+
+/** Rows inserted, updated or deleted since the connection was opened; used to tell whether to save. */
+export const totalChanges = () => scalar('SELECT total_changes()');
+
+const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT NOT NULL,
@@ -98,7 +159,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id, created_at DESC);
-`);
+`;
 
 /** Run fn inside a transaction; rolls back if it throws. */
 export function tx(fn) {

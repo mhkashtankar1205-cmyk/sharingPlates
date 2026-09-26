@@ -1,58 +1,31 @@
-// End-to-end API test: runs the server against a throwaway database and walks the whole
+// End-to-end API test: runs the in-browser API (sql.js) in Node against a fresh demo database and walks the whole
 // POST → MATCH → NOTIFY → REQUEST → ACCEPT → PICKUP → COMPLETED loop.
-import { test, before, after } from 'node:test';
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import initSqlJs from 'sql.js';
+import { db, exportDatabase, openDatabase } from '../client/src/local-api/db.js';
+import { handle } from '../client/src/local-api/index.js';
+import { forkSession } from '../client/src/local-api/routes/auth.js';
+import { seed } from '../client/src/local-api/seed.js';
 
-const PORT = 3100 + Math.floor(Math.random() * 800);
-const BASE = `http://localhost:${PORT}/api`;
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sharingplates-'));
-let server;
-
+let SQL;
 before(async () => {
-  server = spawn(process.execPath, ['server/index.js'], {
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, UPLOAD_DIR: path.join(dir, 'uploads') },
-    stdio: 'ignore',
-  });
-  for (let i = 0; i < 100; i++) {
-    try {
-      if ((await fetch(`${BASE}/health`)).ok) return;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error('Server did not start');
+  SQL = await initSqlJs();
+  openDatabase(SQL);
+  seed();
 });
 
-after(async () => {
-  if (server && server.exitCode === null) {
-    const exited = new Promise((resolve) => server.once('exit', resolve));
-    server.kill();
-    await exited;
-  }
-  // Windows can hold the SQLite file briefly after exit.
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-});
-
+/** A signed-in person: keeps their own session between calls, like a browser tab. */
 function client() {
-  let cookie = '';
+  let session = null;
   return async function call(method, url, body) {
-    const headers = { cookie };
-    let payload;
-    if (body instanceof FormData) payload = body;
-    else if (body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-      payload = JSON.stringify(body);
-    }
-    const res = await fetch(BASE + url, { method, headers, body: payload });
-    const set = res.headers.get('set-cookie');
-    if (set) cookie = set.split(';')[0];
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, data };
+    const res = await handle(method, url, { body, session });
+    if (res.session !== undefined) session = res.session;
+    return { status: res.status, data: res.data };
   };
 }
+
+const PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 test('full food-sharing loop', async () => {
   const donor = client();
@@ -67,23 +40,15 @@ test('full food-sharing loop', async () => {
 
   const before = (await hostel('GET', '/me/notifications')).data.unread;
 
-  // POST FOOD (multipart, with a photo)
-  const form = new FormData();
-  form.set('title', 'Test rajma chawal');
-  form.set('food_type', 'veg');
-  form.set('source', 'restaurant');
-  form.set('quantity', '20');
-  form.set('address', '1 Test Street, Koramangala');
-  form.set('locality', 'Koramangala');
-  form.set('lat', '12.936');
-  form.set('lng', '77.626');
-  form.set('available_until', String(Date.now() + 2 * 3600e3));
-  form.set('image', new Blob([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')], { type: 'image/png' }), 'p.png');
-  const created = await donor('POST', '/posts', form);
+  // POST FOOD (form fields are strings, the photo is a data URL, as api.js sends them)
+  const created = await donor('POST', '/posts', {
+    title: 'Test rajma chawal', food_type: 'veg', source: 'restaurant', quantity: '20', address: '1 Test Street, Koramangala',
+    locality: 'Koramangala', lat: '12.936', lng: '77.626', available_until: String(Date.now() + 2 * 3600e3), image: PHOTO,
+  });
   assert.equal(created.status, 201, JSON.stringify(created.data));
   const post = created.data.post;
   assert.equal(post.status, 'active');
-  assert.match(post.image, /^\/uploads\/.+\.png$/);
+  assert.equal(post.image, PHOTO);
 
   // AI FINDS NEARBY PEOPLE → NOTIFICATION
   assert.ok(created.data.matched >= 1, 'at least one nearby receiver matched');
@@ -138,10 +103,53 @@ test('rejects unauthenticated access and bad input', async () => {
   assert.equal((await anon('GET', '/posts')).status, 401);
   const u = client();
   await u('POST', '/auth/signup', { name: 'Val', email: `val${Date.now()}@example.com`, password: 'longpassword' });
-  const form = new FormData();
-  form.set('title', 'x');
-  const bad = await u('POST', '/posts', form);
+  const bad = await u('POST', '/posts', { title: 'x' });
   assert.equal(bad.status, 400);
   assert.ok(bad.data.error);
   assert.equal((await u('POST', '/auth/signup', { name: 'Val', email: 'bad', password: 'short' })).status, 400);
+});
+
+test('saved data reopens intact and deletes still cascade', async () => {
+  const hotel = client();
+  const ngo = client();
+  await hotel('POST', '/auth/login', { email: 'hotel@demo.test', password: 'demo1234' });
+  await ngo('POST', '/auth/login', { email: 'ngo@demo.test', password: 'demo1234' });
+  const until = String(Date.now() + 3600e3);
+  const post = (await hotel('POST', '/posts', { title: 'Cascade test', quantity: '5', address: '1 Test Street', lat: '12.91', lng: '77.63', available_until: until })).data.post;
+  await ngo('POST', `/posts/${post.id}/like`);
+
+  // Saving reopens the sql.js connection; foreign keys must still be on afterwards.
+  const bytes = exportDatabase();
+  assert.equal((await hotel('DELETE', `/posts/${post.id}`)).status, 204);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM likes WHERE post_id = ?').get(post.id).n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE post_id = ?').get(post.id).n, 0);
+
+  // Reopening the saved copy (a page reload) brings back the post and keeps people signed in.
+  openDatabase(SQL, bytes);
+  assert.equal((await hotel('GET', `/posts/${post.id}`)).data.post.title, 'Cascade test');
+  assert.equal((await ngo('GET', '/auth/me')).data.user.email, 'ngo@demo.test');
+});
+
+test('each tab gets its own session', async () => {
+  const login = await handle('POST', '/auth/login', { body: { email: 'priya@demo.test', password: 'demo1234' } });
+  const first = login.session;
+  const second = forkSession(first);
+  assert.ok(second && second !== first);
+  assert.equal((await handle('GET', '/auth/me', { session: second })).data.user.email, 'priya@demo.test');
+
+  // Logging out in one tab leaves the other signed in.
+  assert.equal((await handle('POST', '/auth/logout', { session: second })).session, null);
+  assert.equal((await handle('GET', '/auth/me', { session: second })).data.user, null);
+  assert.equal((await handle('GET', '/auth/me', { session: first })).data.user.email, 'priya@demo.test');
+  assert.equal(forkSession('not-a-session'), null);
+});
+
+test('rejects photos that are not images', async () => {
+  const u = client();
+  await u('POST', '/auth/login', { email: 'cafe@demo.test', password: 'demo1234' });
+  const res = await u('POST', '/posts', {
+    title: 'Bad photo', quantity: '5', address: '1 Test Street', lat: '12.91', lng: '77.61', available_until: String(Date.now() + 3600e3),
+    image: 'javascript:alert(1)',
+  });
+  assert.equal(res.status, 400);
 });

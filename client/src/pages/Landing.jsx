@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api.js';
+import { api, confirmReset } from '../api.js';
 import { Logo } from '../components/Layout.jsx';
 import { LocationPicker } from '../components/maps.jsx';
 import { Icon } from '../components/ui.jsx';
@@ -73,7 +73,13 @@ function LoginForm({ onDone }) {
             ))}
           </div>
           <p className="fine">
-            Tip: open a second browser (or a private window) as a different account to see requests and alerts arrive live.
+            Tip: open a second tab and log in as a different account to see requests and alerts arrive live.
+          </p>
+          <p className="fine">
+            Everything is saved in this browser only. Demo posts expire after a few hours.{' '}
+            <button type="button" className="link" disabled={busy} onClick={confirmReset}>
+              Reset demo data
+            </button>
           </p>
         </div>
       )}

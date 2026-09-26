@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { confirmReset } from '../api.js';
 import { Avatar, Icon } from '../components/ui.jsx';
 import { useAuth, useTheme } from '../state.jsx';
 import { ACCOUNT_LABEL } from '../util.js';
@@ -46,6 +47,15 @@ export default function Me() {
           <span className="grow">
             <b>{theme === 'light' ? 'Switch to Black Theme' : 'Switch to Light Theme'}</b>
             <small>Currently in {theme === 'light' ? 'Light' : 'Black / Dark'} mode</small>
+          </span>
+        </button>
+        <button className="hub-link" onClick={confirmReset}>
+          <span className="hub-icon">
+            <Icon name="trash" />
+          </span>
+          <span className="grow">
+            <b>Reset demo data</b>
+            <small>Start again with fresh demo posts; deletes everything saved in this browser</small>
           </span>
         </button>
         <button className="hub-link" onClick={logout}>

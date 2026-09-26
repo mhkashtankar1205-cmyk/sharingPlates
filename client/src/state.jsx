@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { api } from './api.js';
+import { api, subscribe } from './api.js';
 
 // ---- auth -------------------------------------------------------------------
 
@@ -51,14 +51,7 @@ export function LiveProvider({ children }) {
     api('/me/notifications?limit=1')
       .then((d) => setUnread(d.unread))
       .catch(() => {});
-    const es = new EventSource('/api/me/stream');
-    es.onmessage = (e) => {
-      let event;
-      try {
-        event = JSON.parse(e.data);
-      } catch {
-        return;
-      }
+    return subscribe(user.id, (event) => {
       if (event.kind === 'notification') {
         setUnread((u) => u + 1);
         const n = event.notification;
@@ -67,8 +60,7 @@ export function LiveProvider({ children }) {
           toast(n.title, { tone: n.type === 'urgent' ? 'urgent' : 'info', to: n.post_id ? `/posts/${n.post_id}` : '/alerts' });
       }
       setVersion((v) => v + 1);
-    };
-    return () => es.close();
+    });
   }, [user, toast]);
 
   return (

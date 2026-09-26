@@ -1,30 +1,21 @@
-import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { Router } from 'express';
-import multer from 'multer';
-import { UPLOAD_DIR, db, tx } from '../db.js';
+import { db, tx } from '../db.js';
 import { FOOD_TYPES, HttpError, SOURCES, boundingBox, coords, formatKm, haversineKm, int, now, oneOf, str } from '../lib.js';
 import { POST_SELECT, announcePost, decorate, getPost, isOpen } from '../posts.js';
 import { notify, ping } from '../realtime.js';
+import { Router } from '../router.js';
 import { requireAuth } from './auth.js';
 import { serializeRequest } from './requests.js';
 
 export const DEFAULT_ORIGIN = { lat: 12.9352, lng: 77.6245 }; // Koramangala, Bengaluru
 
-const IMAGE_TYPES = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (_req, file, cb) => cb(null, crypto.randomBytes(12).toString('hex') + IMAGE_TYPES[file.mimetype]),
-  }),
-  limits: { fileSize: 6 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, cb) =>
-    IMAGE_TYPES[file.mimetype] ? cb(null, true) : cb(new HttpError(400, 'Upload a JPG, PNG, WebP or GIF image.')),
-});
-
-function removeUpload(image) {
-  if (image?.startsWith('/uploads/')) fs.rm(path.join(UPLOAD_DIR, path.basename(image)), { force: true }, () => {});
+/** A photo is stored as a data URL (resized in api.js) or a link to one of the preset dish photos. */
+function parseImage(value) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !/^(data:image\/(jpeg|png|webp|gif);base64,|https:\/\/)/.test(value)) {
+    throw new HttpError(400, 'Upload a JPG, PNG, WebP or GIF image.');
+  }
+  if (value.length > 3 * 1024 * 1024) throw new HttpError(400, 'The photo is too large. Use a smaller image.');
+  return value;
 }
 
 /** Exact address and pickup notes are only shown to the provider and to people whose request was accepted. */
@@ -130,47 +121,42 @@ router.get('/:id', (req, res) => {
   res.json({ post, requests });
 });
 
-router.post('/', upload.single('image'), (req, res) => {
+router.post('/', (req, res) => {
   const b = req.body ?? {};
-  try {
-    const title = str(b.title, 'Food name', { min: 3, max: 100 });
-    const description = str(b.description, 'Description', { max: 600, required: false });
-    const foodType = oneOf(b.food_type ?? 'veg', 'Food type', FOOD_TYPES);
-    const source = oneOf(b.source ?? 'home', 'Source', SOURCES);
-    const quantity = int(b.quantity, 'Number of meals', { min: 1, max: 2000 });
-    const address = str(b.address, 'Pickup address', { min: 5, max: 200 });
-    const locality = str(b.locality, 'Locality', { max: 80, required: false });
-    const pickupNotes = str(b.pickup_notes, 'Pickup notes', { max: 300, required: false });
-    const { lat, lng } = coords(b.lat, b.lng);
-    const availableUntil = parseUntil(b.available_until);
-    const active = b.is_active === undefined ? true : ['true', '1', 'on', true].includes(b.is_active);
-    const image = req.file ? `/uploads/${req.file.filename}` : (b.preset_image || (typeof b.image === 'string' && b.image ? b.image : null));
+  const title = str(b.title, 'Food name', { min: 3, max: 100 });
+  const description = str(b.description, 'Description', { max: 600, required: false });
+  const foodType = oneOf(b.food_type ?? 'veg', 'Food type', FOOD_TYPES);
+  const source = oneOf(b.source ?? 'home', 'Source', SOURCES);
+  const quantity = int(b.quantity, 'Number of meals', { min: 1, max: 2000 });
+  const address = str(b.address, 'Pickup address', { min: 5, max: 200 });
+  const locality = str(b.locality, 'Locality', { max: 80, required: false });
+  const pickupNotes = str(b.pickup_notes, 'Pickup notes', { max: 300, required: false });
+  const { lat, lng } = coords(b.lat, b.lng);
+  const availableUntil = parseUntil(b.available_until);
+  const active = b.is_active === undefined ? true : ['true', '1', 'on', true].includes(b.is_active);
+  const image = parseImage(b.image || b.preset_image);
 
-    const { lastInsertRowid } = db
-      .prepare(
-        `INSERT INTO posts (user_id, title, description, food_type, source, quantity, image, address, locality, lat, lng,
-                            pickup_notes, available_until, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(req.user.id, title, description, foodType, source, quantity, image, address, locality, lat, lng,
-        pickupNotes, availableUntil, active ? 1 : 0, now());
+  const { lastInsertRowid } = db
+    .prepare(
+      `INSERT INTO posts (user_id, title, description, food_type, source, quantity, image, address, locality, lat, lng,
+                          pickup_notes, available_until, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(req.user.id, title, description, foodType, source, quantity, image, address, locality, lat, lng,
+      pickupNotes, availableUntil, active ? 1 : 0, now());
 
-    let matched = 0;
-    if (active) {
-      matched = announcePost(getPost(lastInsertRowid), req.user.name);
-      notify(req.user.id, {
-        type: 'live',
-        title: `Your post is live — ${matched} nearby ${matched === 1 ? 'receiver was' : 'receivers were'} notified`,
-        body: title,
-        postId: lastInsertRowid,
-      });
-    }
-    const row = getPost(lastInsertRowid, req.user.id);
-    res.status(201).json({ post: present(row, req.user, req.user, { pickup: true }), matched });
-  } catch (err) {
-    if (req.file) removeUpload(`/uploads/${req.file.filename}`);
-    throw err;
+  let matched = 0;
+  if (active) {
+    matched = announcePost(getPost(lastInsertRowid), req.user.name);
+    notify(req.user.id, {
+      type: 'live',
+      title: `Your post is live — ${matched} nearby ${matched === 1 ? 'receiver was' : 'receivers were'} notified`,
+      body: title,
+      postId: lastInsertRowid,
+    });
   }
+  const row = getPost(lastInsertRowid, req.user.id);
+  res.status(201).json({ post: present(row, req.user, req.user, { pickup: true }), matched });
 });
 
 router.patch('/:id', (req, res) => {
@@ -235,7 +221,6 @@ router.delete('/:id', (req, res) => {
   if (post.claimed > 0) throw new HttpError(409, 'This post has accepted requests. Mark it completed or inactive instead.');
   const pending = db.prepare(`SELECT * FROM requests WHERE post_id = ? AND status = 'pending'`).all(post.id);
   db.prepare('DELETE FROM posts WHERE id = ?').run(post.id);
-  removeUpload(post.image);
   for (const r of pending) notify(r.requester_id, { type: 'declined', title: `${post.title} was removed by the provider` });
   res.status(204).end();
 });

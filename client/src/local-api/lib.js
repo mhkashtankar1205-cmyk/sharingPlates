@@ -16,6 +16,16 @@ export class HttpError extends Error {
 
 export const now = () => Date.now();
 
+/** Random hex string of `bytes` bytes, from the Web Crypto API. */
+export function randomHex(bytes) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Random integer from min (inclusive) to max (exclusive). */
+export function randomInt(min, max) {
+  return min + (crypto.getRandomValues(new Uint32Array(1))[0] % (max - min));
+}
+
 export function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const toRad = (d) => (d * Math.PI) / 180;

@@ -1,36 +1,34 @@
 import { db } from './db.js';
 import { now } from './lib.js';
 
-/** Open Server-Sent Event streams, keyed by user id. */
+/** Live event listeners in this tab, keyed by user id. */
 const clients = new Map();
+let relay = null;
 
-export function subscribe(userId, res) {
-  res.set({
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  });
-  res.flushHeaders();
-  res.write('retry: 5000\n\n');
-
+/** Listen for live events for a user. Returns a function that stops listening. */
+export function subscribe(userId, listener) {
   if (!clients.has(userId)) clients.set(userId, new Set());
-  clients.get(userId).add(res);
-
-  const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
-  res.on('close', () => {
-    clearInterval(heartbeat);
+  clients.get(userId).add(listener);
+  return () => {
     const set = clients.get(userId);
-    set?.delete(res);
+    set?.delete(listener);
     if (set && !set.size) clients.delete(userId);
-  });
+  };
+}
+
+/** Passes every pushed event on to other tabs (set by the browser layer). */
+export function setRelay(fn) {
+  relay = fn;
+}
+
+/** Hands an event to this tab's listeners only. */
+export function deliver(userId, event) {
+  for (const listener of clients.get(userId) ?? []) listener(event);
 }
 
 export function push(userId, event) {
-  const set = clients.get(userId);
-  if (!set) return;
-  const payload = `data: ${JSON.stringify(event)}\n\n`;
-  for (const res of set) res.write(payload);
+  deliver(userId, event);
+  relay?.(userId, event);
 }
 
 const insertNotification = db.prepare(

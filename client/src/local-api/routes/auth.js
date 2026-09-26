@@ -1,8 +1,7 @@
-import crypto from 'node:crypto';
-import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from '../db.js';
-import { ACCOUNT_TYPES, HttpError, coords, now, num, oneOf, str } from '../lib.js';
+import { ACCOUNT_TYPES, HttpError, coords, now, num, oneOf, randomHex, str } from '../lib.js';
+import { Router } from '../router.js';
 
 const COOKIE = 'sp_session';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -29,32 +28,25 @@ export function requireAuth(req, _res, next) {
   next();
 }
 
-function startSession(res, userId) {
-  const token = crypto.randomBytes(32).toString('hex');
+function createSession(userId) {
+  const token = randomHex(32);
   db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, now() + SESSION_MS);
-  res.cookie(COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: SESSION_MS,
-  });
+  return token;
 }
 
-// Small in-memory limiter for login/signup attempts per IP.
-const attempts = new Map();
-function limitAttempts(req, _res, next) {
-  const key = req.ip;
-  const windowMs = 15 * 60 * 1000;
-  const entry = attempts.get(key);
-  const t = now();
-  if (!entry || t - entry.start > windowMs) attempts.set(key, { start: t, count: 1 });
-  else if (++entry.count > 30) return next(new HttpError(429, 'Too many attempts. Try again in a few minutes.'));
-  next();
+function startSession(res, userId) {
+  res.cookie(COOKIE, createSession(userId));
+}
+
+/** A new session for the same user as `token`, so a new tab can log out without ending the others. Null if expired. */
+export function forkSession(token) {
+  const user = getSessionUser.get(token, now());
+  return user ? createSession(user.id) : null;
 }
 
 const router = Router();
 
-router.post('/signup', limitAttempts, async (req, res) => {
+router.post('/signup', async (req, res) => {
   const b = req.body ?? {};
   const name = str(b.name, 'Name', { min: 2, max: 80 });
   const email = str(b.email, 'Email', { max: 160 }).toLowerCase();
@@ -81,7 +73,7 @@ router.post('/signup', limitAttempts, async (req, res) => {
   res.status(201).json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid)) });
 });
 
-router.post('/login', limitAttempts, async (req, res) => {
+router.post('/login', async (req, res) => {
   const email = String(req.body?.email ?? '').trim().toLowerCase();
   const password = String(req.body?.password ?? '');
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);

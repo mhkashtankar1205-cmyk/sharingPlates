@@ -1,8 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
-import { UPLOAD_DIR, db, tx } from './db.js';
+import { db, tx } from './db.js';
 
 export const DEMO_PASSWORD = 'demo1234';
 const M = 60000;
@@ -68,9 +65,7 @@ const DISH_PHOTOS = {
 };
 
 function seedImage(dish, key) {
-  const file = `seed-${key}.svg`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, file), plateSvg(dish, key));
-  return DISH_PHOTOS[dish] || `/uploads/${file}`;
+  return DISH_PHOTOS[dish] || `data:image/svg+xml,${encodeURIComponent(plateSvg(dish, key))}`;
 }
 
 // ---- data -------------------------------------------------------------------
@@ -86,7 +81,8 @@ const USERS = [
   { key: 'temple', name: 'Sri Ganesha Temple Trust', type: 'event', lat: 12.9395, lng: 77.6082, locality: 'Adugodi', phone: '+91 80 2550 1144', radius: 5 },
 ];
 
-export function seed({ quiet = false } = {}) {
+/** Replaces everything in the database with the demo accounts, posts and two weeks of history. */
+export function seed() {
   const t = Date.now();
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
 
@@ -212,13 +208,4 @@ export function seed({ quiet = false } = {}) {
       db.prepare('INSERT INTO likes (user_id, post_id) VALUES (?, ?)').run(u[who].id, pid);
     }
   });
-
-  if (!quiet) {
-    console.log('Seeded demo data. Log in with any of these (password: demo1234):');
-    for (const x of USERS) console.log(`  ${x.key}@demo.test`.padEnd(24), '—', x.name);
-  }
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  seed();
 }

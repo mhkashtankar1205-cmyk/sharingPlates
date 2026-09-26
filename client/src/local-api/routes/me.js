@@ -1,8 +1,7 @@
-import { Router } from 'express';
 import { db } from '../db.js';
 import { CO2E_PER_KG, HttpError, KG_PER_MEAL, now } from '../lib.js';
 import { POST_SELECT, decorate } from '../posts.js';
-import { subscribe } from '../realtime.js';
+import { Router } from '../router.js';
 import { requireAuth } from './auth.js';
 
 const router = Router();
@@ -79,10 +78,6 @@ router.post('/notifications/:id/read', (req, res) => {
   if (!r.changes) throw new HttpError(404, 'Notification not found.');
   const { unread } = db.prepare('SELECT COUNT(*) AS unread FROM notifications WHERE user_id = ? AND read_at IS NULL').get(req.user.id);
   res.json({ unread });
-});
-
-router.get('/stream', (req, res) => {
-  subscribe(req.user.id, res);
 });
 
 function totals(where, params) {

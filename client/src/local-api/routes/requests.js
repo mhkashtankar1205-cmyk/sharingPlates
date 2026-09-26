@@ -1,9 +1,8 @@
-import crypto from 'node:crypto';
-import { Router } from 'express';
 import { db, tx } from '../db.js';
-import { HttpError, formatDuration, now } from '../lib.js';
+import { HttpError, formatDuration, now, randomInt } from '../lib.js';
 import { getPost } from '../posts.js';
 import { notify, ping } from '../realtime.js';
+import { Router } from '../router.js';
 import { requireAuth } from './auth.js';
 
 export function serializeRequest(r, viewer) {
@@ -48,7 +47,7 @@ router.post('/:id/accept', (req, res) => {
     if (r.quantity > remaining) {
       throw new HttpError(409, `Only ${remaining} meals are left, but ${r.quantity} were requested. Decline it or add more meals to the post.`);
     }
-    const code = String(crypto.randomInt(1000, 10000));
+    const code = String(randomInt(1000, 10000));
     db.prepare(`UPDATE requests SET status='accepted', pickup_code=?, updated_at=? WHERE id=?`).run(code, t, r.id);
 
     // Once everything is claimed, the other waiting requests cannot be served.

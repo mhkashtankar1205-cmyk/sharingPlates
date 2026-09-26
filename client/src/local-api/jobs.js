@@ -61,16 +61,9 @@ function cleanSessions() {
   db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now());
 }
 
-export function startJobs() {
-  const run = () => {
-    try {
-      sendUrgentAlerts();
-      expireStaleRequests();
-      cleanSessions();
-    } catch (err) {
-      console.error('[jobs]', err);
-    }
-  };
-  run();
-  return setInterval(run, 60000);
+/** Runs every minute while the app is open (see browser.js). */
+export function runJobs() {
+  sendUrgentAlerts();
+  expireStaleRequests();
+  cleanSessions();
 }
