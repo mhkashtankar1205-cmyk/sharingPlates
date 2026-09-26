@@ -1,0 +1,670 @@
+<title>sharingPlates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --ground:#E9EDE6; --surface:#FFFFFF; --raised:#F5F7F3; --ink:#17201A; --muted:#5E6A62; --line:#DCE2DA;
+  --leaf:#1E5B3F; --on-leaf:#FFFFFF; --leaf-soft:#E3EFE7; --turmeric:#E0A100; --turmeric-soft:#FBF1D2;
+  --chili:#C8372D; --chili-soft:#FBE4E1; --map:#F1F3EE; --street:#FFFFFF; --park:#D8EAD9;
+  --shadow:0 30px 60px -30px rgba(23,40,30,.35);
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0C110E; --surface:#151C18; --raised:#1B241F; --ink:#E6ECE6; --muted:#97A39B; --line:#2A352F;
+    --leaf:#62C18D; --on-leaf:#0C110E; --leaf-soft:#1C3227; --turmeric:#F2B92B; --turmeric-soft:#3A3014;
+    --chili:#FF6F62; --chili-soft:#3B1F1C; --map:#1A221E; --street:#26302A; --park:#1F3326;
+    --shadow:0 30px 60px -30px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0C110E; --surface:#151C18; --raised:#1B241F; --ink:#E6ECE6; --muted:#97A39B; --line:#2A352F;
+  --leaf:#62C18D; --on-leaf:#0C110E; --leaf-soft:#1C3227; --turmeric:#F2B92B; --turmeric-soft:#3A3014;
+  --chili:#FF6F62; --chili-soft:#3B1F1C; --map:#1A221E; --street:#26302A; --park:#1F3326;
+  --shadow:0 30px 60px -30px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid var(--turmeric);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.86em}
+
+/* stage */
+.stage{min-height:100%;display:grid;grid-template-columns:minmax(0,340px) minmax(0,420px);gap:56px;justify-content:center;align-items:center;padding-block:24px;padding-inline:16px}
+.brief h1{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;letter-spacing:-.02em;margin:0 0 12px}
+.brief h1 span{color:var(--leaf)}
+.brief p.lede{color:var(--muted);margin:0 0 28px;max-width:34ch}
+.flow-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px}
+.flow{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.flow li{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:center;padding:8px 0;color:var(--muted);position:relative}
+.flow li:not(:last-child)::after{content:"";position:absolute;left:13px;top:34px;height:14px;width:2px;background:var(--line)}
+.flow .dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:600 12px var(--mono);background:var(--surface)}
+.flow li.done{color:var(--ink)}
+.flow li.done .dot{background:var(--leaf);border-color:var(--leaf);color:var(--on-leaf)}
+.flow li.next .dot{border-color:var(--turmeric);color:var(--ink)}
+.flow li.next{color:var(--ink);font-weight:600}
+.hint{margin-top:18px;padding:12px 14px;border-radius:12px;background:var(--turmeric-soft);font-size:14px}
+.hint b{font-weight:700}
+
+/* phone */
+.phone{width:100%;height:min(860px,calc(100vh - 48px));min-height:560px;background:var(--surface);border:1px solid var(--line);border-radius:32px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.appbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.logo{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.02em}
+.logo span{color:var(--leaf)}
+.loc{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:6px 10px;border-radius:999px;background:var(--raised)}
+.iconbtn{position:relative;width:36px;height:36px;display:grid;place-items:center;border-radius:50%}
+.iconbtn:hover{background:var(--raised)}
+.badge{position:absolute;top:2px;right:0;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--chili);color:#fff;font:700 10px/17px var(--body);text-align:center}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+main.view{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--surface);padding:6px 6px 10px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:6px 0;border-radius:12px;position:relative}
+.tab.on{color:var(--leaf);font-weight:700}
+.tab .plus{width:44px;height:32px;border-radius:12px;background:var(--leaf);color:var(--on-leaf);display:grid;place-items:center}
+.tab .badge{top:0;right:calc(50% - 22px)}
+
+/* stories */
+.stories{display:flex;gap:14px;overflow-x:auto;padding:14px 18px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.story{display:flex;flex-direction:column;align-items:center;gap:6px;width:64px;flex:none;font-size:11px;color:var(--muted);text-align:center}
+.story .ring{width:60px;height:60px;border-radius:50%;padding:3px;background:var(--line)}
+.story.urgent .ring{background:conic-gradient(var(--chili),var(--turmeric),var(--chili))}
+.story.fresh .ring{background:conic-gradient(var(--leaf),var(--turmeric),var(--leaf))}
+.story .ring>*{width:100%;height:100%;border-radius:50%;border:3px solid var(--surface);overflow:hidden;display:block}
+.story svg{width:100%;height:100%;display:block}
+.story .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+
+/* feed card */
+.card{border-bottom:1px solid var(--line);padding-bottom:14px;scroll-margin-top:8px}
+.card.flash{animation:flash 1.4s ease}
+@keyframes flash{0%,40%{background:var(--turmeric-soft)}100%{background:transparent}}
+.card-h{display:flex;align-items:center;gap:10px;padding:12px 18px}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--body);background:var(--leaf-soft);color:var(--leaf);flex:none}
+.card-h .who{flex:1;min-width:0}
+.card-h .who b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-h .who small{color:var(--muted);font-size:12px}
+.pill{font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap;letter-spacing:.02em}
+.pill.active{background:var(--leaf-soft);color:var(--leaf)}
+.pill.claimed,.pill.inactive{background:var(--raised);color:var(--muted)}
+.pill.requested{background:var(--turmeric-soft);color:var(--ink)}
+.pill.partial{background:var(--turmeric-soft);color:var(--ink)}
+.pill.completed{background:var(--leaf);color:var(--on-leaf)}
+.pill.urgent{background:var(--chili-soft);color:var(--chili)}
+.media{position:relative;aspect-ratio:4/3;max-width:100%;background:var(--raised);overflow:hidden}
+.media svg,.media img{width:100%;height:100%;display:block;object-fit:cover}
+.media .chips{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap}
+.chip-o{background:rgba(255,255,255,.92);color:#17201A;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
+.chip-o.hot{background:#C8372D;color:#fff}
+.vegmark{width:12px;height:12px;border:1.5px solid #2E7D32;display:inline-grid;place-items:center;border-radius:2px}
+.vegmark::after{content:"";width:6px;height:6px;border-radius:50%;background:#2E7D32}
+.vegmark.nv{border-color:#A1391F}.vegmark.nv::after{background:#A1391F}
+.card-b{padding:12px 18px 0;display:grid;gap:8px}
+.actions{display:flex;align-items:center;gap:14px}
+.actions .like.on{color:var(--chili)}
+.actions .like.on svg{fill:var(--chili)}
+.actions .spacer{flex:1}
+.card-b h3{font-family:var(--display);font-weight:600;font-size:19px;line-height:1.2;margin:0;text-wrap:balance}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.facts span{display:inline-flex;align-items:center;gap:5px}
+.facts svg.i{width:15px;height:15px}
+.facts .late{color:var(--chili);font-weight:600}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:14px;padding:10px 16px;border-radius:12px;background:var(--leaf);color:var(--on-leaf)}
+.btn:hover{filter:brightness(1.08)}
+.btn[disabled]{background:var(--raised);color:var(--muted);cursor:not-allowed;filter:none}
+.btn.ghost{background:var(--raised);color:var(--ink)}
+.btn.warn{background:var(--turmeric);color:#17201A}
+.btn.full{width:100%}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:10px}
+.reqstate{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--turmeric-soft);font-size:13px}
+.reqstate.ready{background:var(--leaf-soft)}
+.reqstate .grow{flex:1}
+
+/* sections */
+.pad{padding:16px 18px}
+.h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01em;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.seg{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:12px 18px}
+.seg button{flex:none;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;background:var(--raised);color:var(--muted);border:1px solid transparent}
+.seg button.on{background:var(--ink);color:var(--surface)}
+.seg button .n{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:4px}
+
+/* map */
+.map{margin:0 18px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--map)}
+.map svg{display:block;width:100%;height:auto}
+.map .pin{cursor:pointer}
+.ai{display:flex;gap:10px;align-items:flex-start;margin:12px 18px 0;padding:10px 12px;border-radius:12px;background:var(--leaf-soft);font-size:13px}
+.ai svg.i{width:18px;height:18px;color:var(--leaf)}
+.rows{display:grid}
+.row{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.row:hover,.row.sel{background:var(--raised)}
+.thumb{width:56px;height:56px;border-radius:12px;overflow:hidden;background:var(--raised)}
+.thumb svg,.thumb img{width:100%;height:100%;display:block;object-fit:cover}
+.row b{display:block;font-size:14px;line-height:1.25}
+.row small{color:var(--muted);font-size:12px}
+.row .rt{text-align:right;display:grid;gap:4px;justify-items:end}
+.row .km{font-family:var(--mono);font-size:13px;font-weight:500}
+
+/* alerts */
+.al{display:grid;grid-template-columns:38px 1fr auto;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);text-align:left;width:100%;align-items:start}
+.al:hover{background:var(--raised)}
+.al .ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--leaf-soft);color:var(--leaf)}
+.al.urgent .ic{background:var(--chili-soft);color:var(--chili)}
+.al.ready .ic{background:var(--turmeric-soft);color:var(--ink)}
+.al p{margin:0;font-size:14px}
+.al small{color:var(--muted);font-size:12px}
+.al .unread{width:8px;height:8px;border-radius:50%;background:var(--chili);margin-top:6px}
+
+/* form */
+form.post{display:grid;gap:14px;padding:0 18px 24px}
+.field{display:grid;gap:6px}
+.field>span{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;font:inherit;color:var(--ink);background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.upload{display:grid;place-items:center;aspect-ratio:16/9;max-width:100%;border:1.5px dashed var(--line);border-radius:16px;background:var(--raised);color:var(--muted);cursor:pointer;overflow:hidden;position:relative;text-align:center;font-size:13px}
+.upload img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.upload input{position:absolute;opacity:0;width:1px;height:1px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:12px;background:var(--leaf-soft);cursor:pointer}
+.toggle small{display:block;color:var(--muted);font-size:12px}
+.sw{position:relative;width:44px;height:26px;flex:none}
+.sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.sw i{position:absolute;inset:0;border-radius:13px;background:var(--line);transition:background .2s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw input:checked+i{background:var(--leaf)}
+.sw input:checked+i::after{transform:translateX(18px)}
+.err{color:var(--chili);font-size:13px;margin:0}
+
+/* me */
+.prof{display:flex;gap:14px;align-items:center;padding:18px}
+.prof .av{width:56px;height:56px;font-size:18px}
+.prof b{font-family:var(--display);font-size:20px;font-weight:600;display:block}
+.mp{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.mp .thumb{width:64px;height:64px}
+.mp-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.mp-top b{font-size:15px;line-height:1.25}
+.bar{height:6px;border-radius:3px;background:var(--raised);overflow:hidden;margin:8px 0 4px}
+.bar i{display:block;height:100%;background:var(--leaf);border-radius:3px}
+.mp small{color:var(--muted);font-size:12px}
+.inc{margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border-radius:12px;background:var(--turmeric-soft);font-size:13px}
+.inc .grow{flex:1;min-width:120px}
+.mp .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.empty{padding:40px 18px;text-align:center;color:var(--muted)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 18px}
+.stat{padding:14px;border-radius:16px;background:var(--raised)}
+.stat.lead{grid-column:1/-1;background:var(--leaf);color:var(--on-leaf)}
+.stat .v{font-family:var(--display);font-weight:800;font-size:30px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat.lead .v{font-size:44px}
+.stat .k{font-size:12px;opacity:.8;margin-top:4px}
+.note{font-size:12px;color:var(--muted);padding:12px 18px 24px}
+
+/* sheet & toast */
+.sheet{position:absolute;inset:0;background:rgba(10,16,12,.45);display:flex;align-items:flex-end;z-index:5}
+.sheet .panel{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:10px 18px 22px;max-height:88%;overflow-y:auto;animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+.panel h3{font-family:var(--display);font-size:21px;font-weight:600;margin:0 0 4px}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:14px;background:var(--raised);margin:16px 0}
+.stepper button{width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:20px;font-weight:700}
+.stepper .q{font-family:var(--display);font-weight:800;font-size:30px;font-variant-numeric:tabular-nums;text-align:center}
+.stepper .q small{display:block;font:500 12px var(--body);color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px;margin:14px 0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:600}
+.otp{font-family:var(--mono);font-size:26px;letter-spacing:.3em;text-align:center;padding:12px;border-radius:14px;background:var(--turmeric-soft);margin:6px 0 16px}
+.toast{position:absolute;left:18px;right:18px;bottom:84px;background:var(--ink);color:var(--surface);padding:12px 14px;border-radius:14px;font-size:14px;z-index:6;animation:up .2s ease}
+
+@media (max-width:880px){
+  .stage{grid-template-columns:minmax(0,1fr);gap:28px;justify-items:center;align-items:start}
+  .phone{order:-1;max-width:460px;height:calc(100svh - 48px);border-radius:24px}
+  .brief{max-width:460px;width:100%}
+  .brief h1{font-size:34px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="stage">
+  <aside class="brief">
+    <h1>Extra food,<br><span>shared nearby.</span></h1>
+    <p class="lede">A local feed where weddings, parties, hotels and home cooks post surplus meals, and nearby NGOs, hostels and people request them before they go to waste.</p>
+    <p class="flow-title">Your demo run</p>
+    <ol class="flow" id="flow"></ol>
+    <div class="hint" id="hint"></div>
+  </aside>
+
+  <div class="phone" id="phone">
+    <header class="appbar">
+      <div class="logo">sharing<span>Plates</span></div>
+      <div class="loc"><svg class="i" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Koramangala · 5 km</div>
+      <button class="iconbtn" data-act="tab" data-tab="alerts" aria-label="Notifications"><svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button>
+    </header>
+    <main class="view" id="view"></main>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="sheet" id="sheet" hidden><div class="panel" id="panel"></div></div>
+    <div class="toast" id="toast" hidden></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const M = 60000, T0 = Date.now();
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const ICON = {
+  home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
+  nearby:'<circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="2.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  bell:'<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>',
+  heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
+  bookmark:'<path d="M6 4h12v17l-6-4-6 4z"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  bowl:'<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8 7c0-1.5 1-1.5 1-3M12 7c0-1.5 1-1.5 1-3M16 7c0-1.5 1-1.5 1-3"/>',
+  spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
+  alert:'<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.2v.1"/>',
+  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  send:'<path d="M4 12l16-8-6 16-2.5-6.5z"/>',
+  photo:'<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>',
+  hands:'<path d="M4 14l4-4 3 2 3-3 6 6-5 5H9z"/>'
+};
+const ic = (n, extra='') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${ICON[n]}</svg>`;
+
+/* ---------- plate illustrations (stand-ins for food photos) ---------- */
+const DISH = {
+  biryani:{bg:'#F3E2BF',base:'#E8B546',bits:['#C06A22','#FFF8EC','#5E8A2A','#A8431E'],side:'#F7F3E8',sideTop:'#DCE9C9'},
+  paneer:{bg:'#F5D9C6',base:'#D5602A',bits:['#FFF4E0','#FFF4E0','#3E7B3A'],side:'#E7C386',sideTop:'#D9A85C'},
+  dal:{bg:'#ECE3C3',base:'#E2B236',bits:['#FFFCF2','#FFFCF2','#7FA650'],side:'#FFFBEF',sideTop:'#F4EFE0'},
+  idli:{bg:'#D8E7DE',base:'#F6F3EA',bits:['#EDE7D6'],side:'#C45A28',sideTop:'#B04A1E'},
+  curry:{bg:'#EFD3C2',base:'#9E3D1B',bits:['#F2E6CC','#6A2710','#E0A060'],side:'#FFFBEF',sideTop:'#F4EFE0'},
+  sweets:{bg:'#FADFD1',base:'#F29B35',bits:['#F2C94C','#E4572E','#8BBF5A','#F7E3A1'],side:'#FFE7A8',sideTop:'#F2C94C'},
+  snacks:{bg:'#F1E1C8',base:'#C88A2E',bits:['#8A5719','#E3B04B','#B8741F'],side:'#3E7B3A',sideTop:'#5C9A3F'},
+  poha:{bg:'#F2EBC1',base:'#F1D548',bits:['#5E8A2A','#B5462B','#FFF8D8'],side:'#F7F3E8',sideTop:'#E9E3D3'}
+};
+function hash(s){let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))%2147483647;return h||1}
+function plate(p){
+  const d = DISH[p.dish] || DISH.dal; let seed = hash(p.id);
+  const r = () => (seed = (seed*16807)%2147483647)/2147483647;
+  let bits = '';
+  const idli = p.dish === 'idli';
+  const n = idli ? 5 : 34;
+  for (let k=0;k<n;k++){
+    const a = r()*Math.PI*2, rad = Math.sqrt(r())*(idli?34:52);
+    const x = 182+Math.cos(a)*rad, y = 152+Math.sin(a)*rad*.86;
+    bits += idli
+      ? `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="24" ry="17" fill="#FFFDF7" stroke="#E4DDCB"/>`
+      : `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(2.5+r()*5).toFixed(1)}" fill="${d.bits[k%d.bits.length]}"/>`;
+  }
+  return `<svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(p.title)}">
+    <rect width="400" height="300" fill="${d.bg}"/>
+    <g stroke="#000" stroke-opacity=".05" stroke-width="10">${[0,1,2,3,4,5,6,7].map(k=>`<path d="M${k*56-40} 0 l-60 300"/>`).join('')}</g>
+    <ellipse cx="206" cy="166" rx="128" ry="118" fill="#000" opacity=".08"/>
+    <circle cx="200" cy="152" r="122" fill="#FFFFFF"/>
+    <circle cx="200" cy="152" r="98" fill="#F8F6F0"/>
+    ${idli?'':`<ellipse cx="182" cy="152" rx="66" ry="57" fill="${d.base}"/>`}
+    ${bits}
+    <circle cx="276" cy="112" r="32" fill="#FFFFFF" stroke="#000" stroke-opacity=".08" stroke-width="2"/>
+    <circle cx="276" cy="112" r="24" fill="${d.side}"/>
+    <circle cx="271" cy="107" r="10" fill="${d.sideTop}" opacity=".7"/>
+    <path d="M300 230 q20 -6 40 -40" stroke="#B9B2A3" stroke-width="7" stroke-linecap="round" fill="none"/>
+  </svg>`;
+}
+const media = p => p.photo ? `<img src="${p.photo}" alt="${esc(p.title)}">` : plate(p);
+
+/* ---------- data ---------- */
+const posts = [
+  {id:'p1',title:'Veg biryani with raita',provider:'Sharma–Verma Wedding',kind:'Wedding',locality:'Koramangala 4th Block',km:1.2,meals:60,left:60,exp:T0+95*M,veg:true,dish:'biryani',x:258,y:88,likes:128},
+  {id:'p2',title:'Paneer butter masala & tandoori rotis',provider:'Hotel Saffron Inn',kind:'Hotel',locality:'HSR Layout',km:2.1,meals:35,left:22,exp:T0+38*M,veg:true,dish:'paneer',x:300,y:180,likes:64},
+  {id:'p3',title:'Dal, jeera rice & aloo sabzi',provider:"Riya's birthday party",kind:'Party',locality:'Ejipura',km:0.8,meals:18,left:18,exp:T0+150*M,veg:true,dish:'dal',x:170,y:92,likes:31},
+  {id:'p4',title:'Idli, vada & sambar',provider:'Udupi Grand Café',kind:'Restaurant',locality:'BTM Layout',km:3.4,meals:25,left:25,exp:T0+70*M,veg:true,dish:'idli',x:90,y:196,likes:47},
+  {id:'p6',title:'Laddoos & cut fruit',provider:'Ganesh temple festival',kind:'Event',locality:'Adugodi',km:1.9,meals:50,left:50,exp:T0+220*M,veg:true,dish:'sweets',x:110,y:62,likes:89},
+  {id:'p5',title:'Chicken curry & steamed rice',provider:'Hotel Brookside',kind:'Hotel',locality:'Indiranagar',km:4.6,meals:40,left:0,exp:T0+60*M,veg:false,dish:'curry',x:352,y:40,likes:52,claimed:true}
+];
+const mine = [
+  {id:'m1',title:'Samosa & pakora platters',kind:'Party',meals:25,claimed:0,exp:T0+80*M,dish:'snacks',veg:true,incoming:[{id:'r1',who:'Hope Boys Hostel',type:'Hostel',qty:20,km:1.4}]},
+  {id:'m2',title:'Dal makhani & jeera rice',kind:'Home',meals:40,claimed:15,exp:T0+120*M,dish:'dal',veg:true,incoming:[]},
+  {id:'m3',title:'Office lunch buffet surplus',kind:'Event',meals:30,claimed:30,exp:T0-26*60*M,dish:'paneer',veg:true,incoming:[],done:true},
+  {id:'m4',title:'Breakfast poha',kind:'Home',meals:12,claimed:0,exp:T0-5*60*M,dish:'poha',veg:true,incoming:[],inactive:true}
+];
+const reqs = {};   // postId -> {qty, status:'sent'|'ready'|'done', otp, as}
+const impact = {meals:142, donations:9, people:131};
+let alerts = [
+  {id:'a1',kind:'urgent',post:'p2',text:'Only 40 min left: 22 meals of paneer & rotis at Hotel Saffron Inn, 2.1 km away',at:T0-2*M,read:false},
+  {id:'a2',kind:'near',post:'p1',text:'60 meals available 1.2 km away — veg biryani from a wedding in Koramangala',at:T0-9*M,read:false},
+  {id:'a3',kind:'near',post:'p3',text:"Food available near your hostel — 18 meals at Riya's birthday party, Ejipura",at:T0-24*M,read:false},
+  {id:'a4',kind:'request',post:'m1',text:'Hope Boys Hostel requested 20 meals of your samosa & pakora platters',at:T0-31*M,read:true}
+];
+const FLOW = [['post','Post food'],['match','AI finds nearby people'],['notify','Notification sent'],['request','Request'],['accept','Accept'],['pickup','Pickup'],['complete','Mark completed']];
+const reached = new Set();
+const ui = {tab:'home', sort:'best', sel:null, myFilter:'all', meView:'posts', sheet:null, qty:10, as:'Hostel'};
+
+/* ---------- helpers ---------- */
+const minsLeft = p => Math.round((p.exp - Date.now())/M);
+function leftLabel(p){const m=minsLeft(p); if(m<=0) return 'Expired'; if(m<60) return m+' min left'; return Math.floor(m/60)+'h '+(m%60)+'m left';}
+const clock = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+const urgent = p => !p.claimed && minsLeft(p) > 0 && minsLeft(p) <= 60;
+const initials = s => s.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+const ago = t => {const m=Math.max(0,Math.round((Date.now()-t)/M)); return m<1?'now':m<60?m+'m':Math.floor(m/60)+'h';};
+function myStatus(m){ if(m.done) return 'completed'; if(m.inactive || minsLeft(m)<=0) return 'inactive'; if(m.incoming.length) return 'requested'; if(m.claimed>0) return 'partial'; return 'active'; }
+const STATUS_LABEL = {active:'Active',requested:'Requested',partial:'Partially claimed',completed:'Completed',inactive:'Inactive'};
+
+function reach(...steps){ steps.forEach(s=>reached.add(s)); renderFlow(); }
+function renderFlow(){
+  const next = FLOW.find(([k])=>!reached.has(k));
+  $('#flow').innerHTML = FLOW.map(([k,l],i)=>`<li class="${reached.has(k)?'done':next&&next[0]===k?'next':''}"><span class="dot">${reached.has(k)?'✓':i+1}</span>${l}</li>`).join('');
+  let h;
+  if (!reached.has('request') && !reached.has('post')) h = '<b>Try it:</b> tap <b>Request food</b> on the biryani post, or post your own food with the green <b>+</b>.';
+  else if (reached.has('request') && !reached.has('accept')) h = 'Request sent. The provider usually accepts within a few seconds — watch the bell.';
+  else if (reached.has('post') && !reached.has('accept')) h = 'Your post is live. A nearby NGO will request it shortly — accept it under <b>Me → My posts</b>.';
+  else if (!reached.has('complete')) h = 'Accepted. Open the pickup details and mark the food as picked up / completed.';
+  else h = '<b>Loop closed.</b> Check <b>Me → Impact</b> to see the meals you just added.';
+  $('#hint').innerHTML = h;
+}
+
+function addAlert(a){ alerts.unshift({id:'a'+Date.now()+Math.random(), at:Date.now(), read:false, ...a}); renderBadges(); if(ui.tab==='alerts') render(); }
+function renderBadges(){
+  const n = alerts.filter(a=>!a.read).length;
+  const b = $('#bellBadge'); b.hidden = !n; b.textContent = n;
+  renderTabs();
+}
+let toastTimer;
+function toast(msg){ const t=$('#toast'); t.innerHTML=msg; t.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.hidden=true, 3200); }
+
+/* ---------- tabs ---------- */
+function renderTabs(){
+  const n = alerts.filter(a=>!a.read).length;
+  const T = [['home','Home','home'],['nearby','Nearby','nearby'],['post','Post','plus'],['alerts','Alerts','bell'],['me','Me','user']];
+  $('#tabs').innerHTML = T.map(([k,l,i])=>`<button class="tab ${ui.tab===k?'on':''}" data-act="tab" data-tab="${k}" aria-label="${l}">
+    ${k==='post'?`<span class="plus">${ic('plus')}</span>`:ic(i)}<span>${l}</span>${k==='alerts'&&n?`<span class="badge">${n}</span>`:''}</button>`).join('');
+}
+
+/* ---------- home ---------- */
+function reqBlock(p){
+  const r = reqs[p.id];
+  if (!r) return '';
+  if (r.status==='sent') return `<div class="reqstate">${ic('clock')}<span class="grow">You requested <b>${r.qty} meals</b> · waiting for ${esc(p.provider)} to accept</span></div>`;
+  if (r.status==='ready') return `<div class="reqstate ready">${ic('check')}<span class="grow"><b>Ready for pickup</b> · ${r.qty} meals</span><button class="btn sm" data-act="pickup" data-id="${p.id}">Pickup details</button></div>`;
+  return `<div class="reqstate ready">${ic('check')}<span class="grow">Picked up ${r.qty} meals · thank you</span></div>`;
+}
+function card(p){
+  const own = !!p.mine, u = urgent(p), exp = minsLeft(p)<=0;
+  const status = p.claimed||p.left===0 ? '<span class="pill claimed">Claimed</span>' : exp ? '<span class="pill inactive">Expired</span>' : u ? '<span class="pill urgent">Urgent</span>' : '<span class="pill active">Active</span>';
+  let cta;
+  if (own) cta = `<button class="btn ghost" data-act="tab" data-tab="me">Manage post</button>`;
+  else if (p.claimed||p.left===0||exp) cta = `<button class="btn" disabled>${exp?'Expired':'Fully claimed'}</button>`;
+  else if (reqs[p.id]) cta = '';
+  else cta = `<button class="btn" data-act="request" data-id="${p.id}">${ic('bowl')}Request food</button>`;
+  return `<article class="card" id="c-${p.id}">
+    <div class="card-h"><span class="av">${initials(own?'You':p.provider)}</span><span class="who"><b>${esc(own?'You':p.provider)}</b><small>${esc(p.kind)} · ${esc(p.locality)}</small></span>${status}</div>
+    <div class="media">${media(p)}<div class="chips">
+      <span class="chip-o"><i class="vegmark ${p.veg?'':'nv'}"></i>${p.veg?'Veg':'Non-veg'}</span>
+      <span class="chip-o ${u?'hot':''}" data-exp="${p.id}">${ic('clock','style="width:14px;height:14px"')}<span class="tl">${leftLabel(p)}</span></span></div></div>
+    <div class="card-b">
+      <div class="actions">
+        <button class="like ${p.liked?'on':''}" data-act="like" data-id="${p.id}" aria-label="Appreciate">${ic('heart')}</button>
+        <span class="mono" style="color:var(--muted)">${p.likes + (p.liked?1:0)}</span>
+        <button aria-label="Save">${ic('bookmark')}</button>
+        <span class="spacer"></span>${cta}
+      </div>
+      <h3>${esc(p.title)}</h3>
+      <div class="facts">
+        <span>${ic('bowl')}<b style="color:var(--ink)">${p.left}</b>&nbsp;of ${p.meals} meals left</span>
+        <span>${ic('pin')}<span class="mono">${p.km.toFixed(1)} km</span></span>
+        <span class="${u?'late':''}">${ic('clock')}Until ${clock(p.exp)}</span>
+      </div>
+      ${reqBlock(p)}
+    </div></article>`;
+}
+function renderHome(){
+  const live = posts.filter(p=>!p.claimed && minsLeft(p)>0 && !p.mine).sort((a,b)=>a.exp-b.exp);
+  return `<div class="stories">${live.map(p=>`<button class="story ${urgent(p)?'urgent':'fresh'}" data-act="goto" data-id="${p.id}"><span class="ring"><span>${plate(p)}</span></span><span class="nm">${esc(p.provider.split(' ')[0])}</span></button>`).join('')}</div>
+  ${posts.map(card).join('')}
+  <p class="note">Food photos are illustrated placeholders in this prototype.</p>`;
+}
+
+/* ---------- nearby ---------- */
+function score(p){ return p.km - p.left/25 + (urgent(p)?-1.5:0); }
+function sorted(){
+  const list = posts.filter(p=>!p.mine);
+  const f = {best:(a,b)=>score(a)-score(b), distance:(a,b)=>a.km-b.km, quantity:(a,b)=>b.left-a.left, urgency:(a,b)=>a.exp-b.exp}[ui.sort];
+  return list.slice().sort((a,b)=>{ const ca = a.claimed?1:0, cb=b.claimed?1:0; return ca-cb || f(a,b); });
+}
+function renderNearby(){
+  const list = sorted();
+  const pins = list.map(p=>{
+    const col = p.claimed ? 'var(--muted)' : urgent(p) ? 'var(--chili)' : 'var(--leaf)';
+    const sel = ui.sel===p.id;
+    return `<g class="pin" data-act="pin" data-id="${p.id}" transform="translate(${p.x} ${p.y})">
+      ${sel?'<circle r="18" fill="var(--turmeric)" opacity=".35"/>':''}
+      <path d="M0 0 C-9 -12 -11 -16 -11 -21 A11 11 0 0 1 11 -21 C11 -16 9 -12 0 0z" fill="${col}"/>
+      <text y="-17" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="Figtree,sans-serif">${p.left||'✓'}</text></g>`;
+  }).join('');
+  return `<div class="pad" style="padding-bottom:10px"><h2 class="h2">Nearby food</h2><p class="sub">Pickup points around Koramangala · tap a pin</p></div>
+  <div class="map"><svg viewBox="0 0 400 240" role="img" aria-label="Map of nearby pickup points">
+    <rect width="400" height="240" fill="var(--map)"/>
+    <rect x="20" y="120" width="70" height="46" rx="8" fill="var(--park)"/><rect x="300" y="96" width="80" height="40" rx="8" fill="var(--park)"/>
+    <g stroke="var(--street)" stroke-width="9" fill="none" stroke-linecap="round">
+      <path d="M-10 60 L410 76"/><path d="M-10 178 L410 150"/><path d="M140 -10 L160 250"/><path d="M250 -10 L236 250"/><path d="M30 250 Q200 120 410 210"/>
+    </g>
+    <circle cx="200" cy="120" r="54" fill="none" stroke="var(--leaf)" stroke-opacity=".5" stroke-dasharray="4 5"/>
+    <circle cx="200" cy="120" r="130" fill="none" stroke="var(--leaf)" stroke-opacity=".3" stroke-dasharray="4 5"/>
+    <text x="200" y="60" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="JetBrains Mono,monospace">1 km</text>
+    <text x="330" y="226" font-size="9" fill="var(--muted)" font-family="JetBrains Mono,monospace">3 km</text>
+    <circle cx="200" cy="120" r="12" fill="var(--turmeric)" opacity=".3"/><circle cx="200" cy="120" r="6" fill="var(--turmeric)" stroke="#fff" stroke-width="2"/>
+    <text x="211" y="134" font-size="10" font-weight="700" fill="var(--ink)" font-family="Figtree,sans-serif">You</text>
+    ${pins}
+  </svg></div>
+  <div class="ai">${ic('spark')}<span><b>Matched for you.</b> Posts within 5 km of Nest Girls' Hostel come first, ranked by distance, meals left and time before they expire.</span></div>
+  <div class="seg" role="tablist">${[['best','Best match'],['distance','Distance'],['quantity','Quantity'],['urgency','Urgency']].map(([k,l])=>`<button class="${ui.sort===k?'on':''}" data-act="sort" data-sort="${k}">${l}</button>`).join('')}</div>
+  <div class="rows">${list.map(p=>`<button class="row ${ui.sel===p.id?'sel':''}" data-act="goto" data-id="${p.id}" id="r-${p.id}">
+    <span class="thumb">${media(p)}</span>
+    <span><b>${esc(p.title)}</b><small>${esc(p.provider)} · ${p.claimed?'claimed':p.left+' meals left'}</small></span>
+    <span class="rt"><span class="km">${p.km.toFixed(1)} km</span>${p.claimed?'<span class="pill claimed">Claimed</span>':urgent(p)?`<span class="pill urgent">${leftLabel(p)}</span>`:`<small>${leftLabel(p)}</small>`}</span>
+  </button>`).join('')}</div>`;
+}
+
+/* ---------- post ---------- */
+let draftPhoto = null;
+function renderPost(){
+  const t = new Date(Date.now()+2*60*M), hh = String(t.getHours()).padStart(2,'0'), mm = String(t.getMinutes()).padStart(2,'0');
+  return `<div class="pad"><h2 class="h2">Share extra food</h2><p class="sub">Nearby hostels, NGOs and people get notified as soon as you post.</p></div>
+  <form class="post" id="postForm" novalidate>
+    <label class="upload" for="fPhoto">${draftPhoto?`<img src="${draftPhoto}" alt="Selected food photo">`:`<span>${ic('photo')}<br>Add a food photo<br><small>Tap to upload</small></span>`}<input type="file" id="fPhoto" accept="image/*"></label>
+    <label class="field"><span>Food name</span><input id="fName" placeholder="e.g. Chole bhature & gulab jamun" value="Chole bhature & gulab jamun"></label>
+    <div class="two">
+      <label class="field"><span>Type</span><select id="fVeg"><option value="1">Veg</option><option value="0">Non-veg</option></select></label>
+      <label class="field"><span>From</span><select id="fKind"><option>Home</option><option selected>Party</option><option>Wedding</option><option>Restaurant</option><option>Hotel</option><option>Event</option></select></label>
+    </div>
+    <div class="two">
+      <label class="field"><span>Meals</span><input id="fMeals" type="number" min="1" max="500" value="30" inputmode="numeric"></label>
+      <label class="field"><span>Available until</span><input id="fTime" type="time" value="${hh}:${mm}"></label>
+    </div>
+    <label class="field"><span>Pickup location</span><input id="fLoc" value="12, 5th Cross, Koramangala 6th Block"></label>
+    <label class="toggle"><span><b>Mark as Active</b><small>Visible in the feed and sent to nearby receivers</small></span><span class="sw"><input type="checkbox" id="fActive" checked><i></i></span></label>
+    <p class="err" id="fErr" hidden></p>
+    <button class="btn full" type="submit">${ic('send')}Post food</button>
+  </form>`;
+}
+function submitPost(){
+  const name = $('#fName').value.trim(), meals = parseInt($('#fMeals').value,10), time = $('#fTime').value, loc = $('#fLoc').value.trim();
+  const err = $('#fErr');
+  if (!name || !meals || meals<1 || !time || !loc){ err.textContent = 'Add a food name, number of meals, pickup time and location to post.'; err.hidden=false; return; }
+  const [h,m] = time.split(':').map(Number); const d = new Date(); d.setHours(h,m,0,0); if (d.getTime() < Date.now()) d.setDate(d.getDate()+1);
+  const active = $('#fActive').checked;
+  const id = 'n'+Date.now();
+  const dishes = ['biryani','paneer','dal','sweets','snacks','poha'];
+  const np = {id,title:name,kind:$('#fKind').value,meals,claimed:0,exp:d.getTime(),dish:dishes[hash(name)%dishes.length],veg:$('#fVeg').value==='1',incoming:[],inactive:!active,photo:draftPhoto};
+  mine.unshift(np);
+  if (active){
+    posts.unshift({...np, provider:'You', locality:loc.split(',').pop().trim(), km:0, left:meals, likes:0, mine:true});
+    reach('post','match','notify');
+    addAlert({kind:'live',post:id,text:`Your post “${name}” is live — 14 hostels, NGOs and people within 3 km were notified`});
+    toast(`${ic('check')} Posted. 14 nearby receivers notified.`);
+    setTimeout(()=>{
+      const q = Math.min(meals, 10);
+      np.incoming.push({id:'r'+Date.now(),who:'Little Hearts NGO',type:'NGO',qty:q,km:1.1});
+      addAlert({kind:'request',post:id,text:`Little Hearts NGO requested ${q} meals of your “${name}”`});
+      toast('New request on your post — open <b>Me → My posts</b>');
+      if (ui.tab==='me') render();
+    }, 5000);
+  } else toast('Saved as inactive. Turn it on from My posts when ready.');
+  draftPhoto = null; ui.tab='home'; render();
+}
+
+/* ---------- alerts ---------- */
+function renderAlerts(){
+  const I = {urgent:'alert',near:'pin',ready:'check',live:'spark',request:'hands'};
+  const html = `<div class="pad"><h2 class="h2">Notifications</h2><p class="sub">Alerts for food near you and updates on your posts.</p></div>
+  ${alerts.map(a=>`<button class="al ${a.kind}" data-act="alert" data-id="${a.id}"><span class="ic">${ic(I[a.kind]||'bell')}</span><span><p>${esc(a.text)}</p><small>${ago(a.at)}</small></span>${a.read?'<span></span>':'<span class="unread" aria-label="Unread"></span>'}</button>`).join('')}`;
+  setTimeout(()=>{ alerts.forEach(a=>a.read=true); renderBadges(); }, 1200);
+  return html;
+}
+
+/* ---------- me ---------- */
+function renderMe(){
+  const head = `<div class="prof"><span class="av">AR</span><span><b>Ananya R.</b><span class="sub">Volunteer · Nest Girls' Hostel, Koramangala</span></span></div>
+  <div class="seg" style="padding-top:0">${[['posts','My posts'],['impact','Impact']].map(([k,l])=>`<button class="${ui.meView===k?'on':''}" data-act="meview" data-v="${k}">${l}</button>`).join('')}</div>`;
+  return head + (ui.meView==='impact' ? renderImpact() : renderMyPosts());
+}
+function renderMyPosts(){
+  const counts = {all:mine.length}; mine.forEach(m=>{const s=myStatus(m); counts[s]=(counts[s]||0)+1;});
+  const F = [['all','All'],['active','Active'],['requested','Requested'],['partial','Partially claimed'],['completed','Completed'],['inactive','Inactive']];
+  const list = mine.filter(m=>ui.myFilter==='all'||myStatus(m)===ui.myFilter);
+  const myReqs = Object.entries(reqs).filter(([,r])=>r.status!=='done');
+  return `${myReqs.length?`<div class="pad" style="padding-bottom:0"><p class="flow-title">Your requests</p>${myReqs.map(([pid,r])=>{const p=posts.find(x=>x.id===pid);return reqBlock(p);}).join('')}</div>`:''}
+  <div class="seg">${F.map(([k,l])=>`<button class="${ui.myFilter===k?'on':''}" data-act="myfilter" data-f="${k}">${l}<span class="n">${counts[k]||0}</span></button>`).join('')}</div>
+  ${list.length?list.map(m=>{
+    const s = myStatus(m), pct = Math.round(m.claimed/m.meals*100);
+    let acts = '';
+    if (s==='partial') acts = `<button class="btn sm" data-act="complete" data-id="${m.id}">${ic('check')}Mark completed</button>`;
+    if (s==='active') acts = `<button class="btn sm ghost" data-act="deactivate" data-id="${m.id}">Mark inactive</button>`;
+    if (s==='inactive' && minsLeft(m)>0) acts = `<button class="btn sm ghost" data-act="activate" data-id="${m.id}">Make active</button>`;
+    return `<div class="mp"><span class="thumb">${media(m)}</span><div>
+      <div class="mp-top"><b>${esc(m.title)}</b><span class="pill ${s}">${s==='partial'&&m.claimed>=m.meals?'Fully claimed':STATUS_LABEL[s]}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <small><span class="mono">${m.claimed}/${m.meals}</span> meals claimed · ${s==='completed'?'handed over':minsLeft(m)>0?leftLabel(m):'expired '+clock(m.exp)}</small>
+      ${m.incoming.map(r=>`<div class="inc"><span class="grow"><b>${esc(r.who)}</b> · ${esc(r.type)} · <span class="mono">${r.km} km</span><br>wants <b>${r.qty} meals</b></span>
+        <button class="btn sm ghost" data-act="decline" data-id="${m.id}" data-r="${r.id}">Decline</button><button class="btn sm" data-act="accept" data-id="${m.id}" data-r="${r.id}">Accept</button></div>`).join('')}
+      ${acts?`<div class="acts">${acts}</div>`:''}
+    </div></div>`;}).join('') : `<p class="empty">No posts with this status.</p>`}`;
+}
+function renderImpact(){
+  const kg = impact.meals*0.35, co2 = kg*2.5;
+  const f = n => n.toLocaleString('en-IN', {maximumFractionDigits:0});
+  return `<div class="stats">
+    <div class="stat lead"><div class="v">${f(impact.meals)}</div><div class="k">Meals redistributed</div></div>
+    <div class="stat"><div class="v">${f(kg)} kg</div><div class="k">Food rescued</div></div>
+    <div class="stat"><div class="v">${f(impact.people)}</div><div class="k">People served</div></div>
+    <div class="stat"><div class="v">${f(impact.donations)}</div><div class="k">Donations completed</div></div>
+    <div class="stat"><div class="v">${f(co2)} kg</div><div class="k">CO₂e waste avoided (est.)</div></div>
+  </div>
+  <p class="note">Estimates assume 350 g of food per meal and 2.5 kg CO₂e avoided per kg of food kept out of landfill. Koramangala this month: <b>4,860 meals</b> shared by 212 providers.</p>`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html){ $('#panel').innerHTML = '<div class="grab"></div>'+html; $('#sheet').hidden=false; }
+function closeSheet(){ $('#sheet').hidden=true; ui.sheet=null; }
+function requestSheet(p){
+  ui.sheet = p.id; ui.qty = Math.min(10, p.left);
+  drawRequest(p);
+}
+function drawRequest(p){
+  openSheet(`<h3>Request food</h3><p class="sub">${esc(p.title)} · ${esc(p.provider)} · <span class="mono">${p.km.toFixed(1)} km</span></p>
+    <div class="stepper"><button data-act="qty" data-d="-5" aria-label="5 fewer">−</button><div class="q">${ui.qty}<small>of ${p.left} meals left</small></div><button data-act="qty" data-d="5" aria-label="5 more">+</button></div>
+    <label class="field"><span>Requesting for</span><select id="rAs">${['Hostel','NGO','Shelter','Individual / family'].map(o=>`<option ${ui.as===o?'selected':''}>${o}</option>`).join('')}</select></label>
+    <label class="field" style="margin-top:12px"><span>Note to provider (optional)</span><textarea id="rNote" rows="2" placeholder="e.g. We'll bring our own containers">We'll bring our own containers.</textarea></label>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:16px"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-act="send" data-id="${p.id}">${ic('send')}Send request</button></div>`);
+}
+function pickupSheet(p){
+  const r = reqs[p.id];
+  openSheet(`<h3>Pickup details</h3><p class="sub">${esc(p.provider)} accepted your request.</p>
+    <dl class="kv"><dt>Food</dt><dd>${esc(p.title)}</dd><dt>Meals</dt><dd>${r.qty}</dd><dt>Where</dt><dd>${esc(p.locality)} · gate 2, ask for the catering lead</dd><dt>Pick up by</dt><dd>${clock(p.exp)}</dd><dt>Distance</dt><dd class="mono">${p.km.toFixed(1)} km</dd></dl>
+    <p class="flow-title" style="text-align:center">Show this code at pickup</p><div class="otp">${r.otp}</div>
+    <button class="btn full" data-act="picked" data-id="${p.id}">${ic('check')}Mark picked up</button>`);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const v = $('#view');
+  v.innerHTML = {home:renderHome, nearby:renderNearby, post:renderPost, alerts:renderAlerts, me:renderMe}[ui.tab]();
+  renderTabs();
+}
+function go(tab){ ui.tab = tab; render(); $('#view').scrollTop = 0; }
+function gotoPost(id){
+  if (id.startsWith('m') || mine.some(m=>m.id===id) && !posts.some(p=>p.id===id)) { ui.meView='posts'; ui.myFilter='all'; go('me'); return; }
+  go('home');
+  const el = document.getElementById('c-'+id); if (!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+document.addEventListener('click', e=>{
+  if (e.target.id==='sheet'){ closeSheet(); return; }
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  const p = posts.find(x=>x.id===id), m = mine.find(x=>x.id===id);
+  switch(act){
+    case 'tab': go(b.dataset.tab); break;
+    case 'like': p.liked = !p.liked; render(); break;
+    case 'goto': ui.sel = id; gotoPost(id); break;
+    case 'pin': ui.sel = id; render(); document.getElementById('r-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}); break;
+    case 'sort': ui.sort = b.dataset.sort; render(); break;
+    case 'request': requestSheet(p); break;
+    case 'qty': { const pp = posts.find(x=>x.id===ui.sheet); ui.as = $('#rAs').value; ui.qty = Math.max(1, Math.min(pp.left, ui.qty + Number(b.dataset.d))); drawRequest(pp); break; }
+    case 'close': closeSheet(); break;
+    case 'send': {
+      ui.as = $('#rAs').value;
+      reqs[id] = {qty:ui.qty, status:'sent', otp:String(1000+hash(id+ui.qty)%9000), as:ui.as};
+      closeSheet(); reach('request'); render();
+      toast(`Request sent to ${esc(p.provider)} for ${ui.qty} meals`);
+      setTimeout(()=>{
+        const r = reqs[id]; r.status = 'ready'; p.left = Math.max(0, p.left - r.qty); if (!p.left) p.claimed = true;
+        reach('accept');
+        addAlert({kind:'ready',post:id,text:`Your requested food is ready for pickup — ${r.qty} meals of ${p.title}, ${p.km.toFixed(1)} km away`});
+        toast(`${ic('check')} ${esc(p.provider)} accepted. Food is ready for pickup.`);
+        if (ui.tab!=='alerts') render();
+      }, 3000);
+      break; }
+    case 'pickup': pickupSheet(p); break;
+    case 'picked': {
+      const r = reqs[id]; r.status = 'done';
+      impact.meals += r.qty; impact.people += r.qty; impact.donations += 1;
+      closeSheet(); reach('pickup','complete'); render();
+      toast(`Pickup completed · ${r.qty} meals rescued`);
+      break; }
+    case 'alert': { const a = alerts.find(x=>x.id===id); if (!a) break; if (a.kind==='request'){ ui.meView='posts'; ui.myFilter='requested'; go('me'); } else gotoPost(a.post); break; }
+    case 'meview': ui.meView = b.dataset.v; render(); break;
+    case 'myfilter': ui.myFilter = b.dataset.f; render(); break;
+    case 'accept': {
+      const r = m.incoming.find(x=>x.id===b.dataset.r);
+      m.incoming = m.incoming.filter(x=>x!==r); m.claimed = Math.min(m.meals, m.claimed + r.qty);
+      const fp = posts.find(x=>x.id===m.id); if (fp){ fp.left = m.meals - m.claimed; if (!fp.left) fp.claimed = true; }
+      reach('accept'); render(); toast(`Accepted. Pickup details shared with ${esc(r.who)}.`);
+      break; }
+    case 'decline': m.incoming = m.incoming.filter(x=>x.id!==b.dataset.r); render(); toast('Request declined'); break;
+    case 'complete': {
+      m.done = true; impact.meals += m.claimed; impact.people += m.claimed; impact.donations += 1;
+      const fp = posts.find(x=>x.id===m.id); if (fp) fp.claimed = true;
+      reach('pickup','complete'); render(); toast(`Marked completed · ${m.claimed} meals added to your impact`);
+      break; }
+    case 'deactivate': m.inactive = true; { const fp = posts.find(x=>x.id===m.id); if (fp) fp.claimed = true; } render(); break;
+    case 'activate': m.inactive = false; render(); break;
+  }
+});
+document.addEventListener('submit', e=>{ if (e.target.id==='postForm'){ e.preventDefault(); submitPost(); } });
+document.addEventListener('change', e=>{
+  if (e.target.id!=='fPhoto' || !e.target.files[0]) return;
+  const fr = new FileReader();
+  fr.onload = () => { draftPhoto = fr.result; const up = document.querySelector('.upload'); up.querySelector('span')?.remove(); up.querySelector('img')?.remove(); up.insertAdjacentHTML('afterbegin', `<img src="${draftPhoto}" alt="Selected food photo">`); };
+  fr.readAsDataURL(e.target.files[0]);
+});
+document.addEventListener('keydown', e=>{ if (e.key==='Escape' && !$('#sheet').hidden) closeSheet(); });
+
+setInterval(()=>{ document.querySelectorAll('[data-exp]').forEach(el=>{ const p = posts.find(x=>x.id===el.dataset.exp); if (p) el.querySelector('.tl').textContent = leftLabel(p); }); }, 30000);
+
+renderFlow(); renderBadges(); render();
+})();
+</script>
